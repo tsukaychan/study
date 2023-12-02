@@ -7,7 +7,7 @@ import (
 
 type String string
 
-func (d String) Size() int {
+func (d String) Len() int {
 	return len(d)
 }
 
@@ -48,7 +48,7 @@ func TestCache_OnEvicted(t *testing.T) {
 	lruCache.Add("k4", String("k4"))
 
 	expect := []string{"key1", "k2"}
-	
+
 	if !reflect.DeepEqual(expect, keys) {
 		t.Fatalf("Call OnEvicted failed, expect keys equals to %s", expect)
 	}
