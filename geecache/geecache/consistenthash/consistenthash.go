@@ -35,8 +35,11 @@ func (m *Map) Add(keys ...string) {
 	for _, key := range keys {
 		for i := 0; i < m.replicas; i++ {
 			hash := int(m.hash([]byte(strconv.Itoa(i) + key)))
-			m.keys = append(m.keys, hash)
+			if _, ok := m.hashMap[hash]; ok {
+				continue
+			}
 			m.hashMap[hash] = key
+			m.keys = append(m.keys, hash)
 		}
 	}
 	sort.Ints(m.keys)

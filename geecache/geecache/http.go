@@ -2,16 +2,29 @@ package geecache
 
 import (
 	"fmt"
+	"geecache/geecache/consistenthash"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
+	"sync"
 )
 
-const defaultBasePath = "/_geecache/"
+const (
+	defaultBasePath = "/_geecache/"
+	defaultReplicas = 50
+)
+
+var _ PeerPicker = (*HTTPPool)(nil)
 
 type HTTPPool struct {
-	self     string
-	basePath string
+	self        string
+	basePath    string
+	init        sync.Once
+	mu          sync.Mutex // guards peers and httpGetters
+	peers       *consistenthash.Map
+	httpGetters map[string]*httpGetter // keyed by e.g. "http://example:8008"
 }
 
 func NewHTTPPool(self string) *HTTPPool {
@@ -19,6 +32,35 @@ func NewHTTPPool(self string) *HTTPPool {
 		self:     self,
 		basePath: defaultBasePath,
 	}
+}
+
+func (p *HTTPPool) Set(peers ...string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.init.Do(func() {
+		p.peers = consistenthash.New(defaultReplicas, nil)
+		p.httpGetters = make(map[string]*httpGetter, len(peers))
+	})
+
+	p.peers.Add(peers...)
+	for _, peer := range peers {
+		p.httpGetters[peer] = &httpGetter{
+			baseURL: peer + p.basePath,
+		}
+	}
+}
+
+func (p *HTTPPool) PickPeer(key string) (PeerGetter, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if peer := p.peers.Get(key); peer != "" && peer != p.self {
+		p.Logf("Pick peer %s", peer)
+		return p.httpGetters[peer], true
+	}
+
+	return nil, false
 }
 
 func (p *HTTPPool) Logf(format string, v ...interface{}) {
@@ -58,4 +100,35 @@ func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+var _ PeerGetter = (*httpGetter)(nil)
+
+type httpGetter struct {
+	baseURL string
+}
+
+func (h httpGetter) Get(group string, key string) ([]byte, error) {
+	u := fmt.Sprintf(
+		"%v%v/%v",
+		h.baseURL,
+		url.QueryEscape(group),
+		url.QueryEscape(key),
+	)
+	res, err := http.Get(u)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned: %v", res.Status)
+	}
+
+	bytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response body: %v", err)
+	}
+
+	return bytes, nil
 }
