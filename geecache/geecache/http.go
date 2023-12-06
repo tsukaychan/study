@@ -3,6 +3,8 @@ package geecache
 import (
 	"fmt"
 	"geecache/geecache/consistenthash"
+	pb "geecache/geecache/geecachepb"
+	"google.golang.org/protobuf/proto"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -108,27 +110,31 @@ type httpGetter struct {
 	baseURL string
 }
 
-func (h httpGetter) Get(group string, key string) ([]byte, error) {
+func (h httpGetter) Get(req *pb.Request, resp *pb.Response) error {
 	u := fmt.Sprintf(
 		"%v%v/%v",
 		h.baseURL,
-		url.QueryEscape(group),
-		url.QueryEscape(key),
+		url.QueryEscape(req.GetGroup()),
+		url.QueryEscape(req.GetKey()),
 	)
 	res, err := http.Get(u)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server returned: %v", res.Status)
+		return fmt.Errorf("server returned: %v", res.Status)
 	}
 
 	bytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response body: %v", err)
+		return fmt.Errorf("reading response body: %v", err)
 	}
 
-	return bytes, nil
+	if err = proto.Unmarshal(bytes, resp); err != nil {
+		return fmt.Errorf("decoding response body: %v", err)
+	}
+
+	return nil
 }
