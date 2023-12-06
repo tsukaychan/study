@@ -8,7 +8,7 @@ mit:
 - 6.824: Distributed Systems
 
 TODO:
-1. [ ] geecache
+1. [x] geecache
 2. [ ] webook
 3. [ ] kubernetes source code
 4. [ ] mit 6.S081
