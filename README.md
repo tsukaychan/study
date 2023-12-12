@@ -18,6 +18,8 @@ BOOK:
 - [ ] Go语言高性能编程 https://geektutu.com/post/high-performance-go.html
 - [ ] Concurrency in Go 中文笔记 https://www.kancloud.cn/mutouzhang/go/596804
 - [ ] Golang101 https://gfw.go101.org/article/101-about.html
+- [ ] Go 语言并发之道
+- [ ] Kubernetes 源码刨析
 - others
 - [ ] Golang设计模式 https://www.yuque.com/aceld/lfhu8y
 - [ ] Go语言设计哲学 https://golang3.eddycjy.com/
